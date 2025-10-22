@@ -1,0 +1,53 @@
+name: meeting_scheduler_reminders
+description: AI-Powered Meeting Scheduler & Reminders App - Schedule meetings with natural language using Google Gemini AI, interactive calendar, smart notifications, and offline database.
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Icons
+  cupertino_icons: ^1.0.2
+  
+  # Calendar
+  table_calendar: ^3.0.9
+  
+  # Local Notifications
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.2
+  
+  # Local Database
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  
+  # HTTP & API
+  http: ^1.1.0
+  
+  # Environment Variables
+  flutter_dotenv: ^5.1.0
+  
+  # State Management
+  provider: ^6.1.1
+  
+  # Date & Time Utilities
+  intl: ^0.19.0
+  
+  # UUID for unique IDs
+  uuid: ^4.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - .env
