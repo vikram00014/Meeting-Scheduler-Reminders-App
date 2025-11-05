@@ -520,7 +520,7 @@ dependencies:
   uuid: ^4.2.2                        # Unique ID generation
 ```
 
-**Total App Size**: ~23.1 MB (Release APK)
+**Total App Size**: ~23.6 MB (Release APK with custom icon)
 
 ## 🔒 Security & Privacy
 
@@ -681,11 +681,13 @@ flutter build apk --release
 # Output: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-**APK Size**: ~23.1 MB
+**APK Size**: ~23.6 MB (with custom icon)
 
 **Minimum Requirements:**
 - Android 5.0 (API 21) or higher
 - 50 MB storage space
+
+**App Icon**: Custom branded icon generated using `flutter_launcher_icons`
 
 ### iOS App
 ```bash
