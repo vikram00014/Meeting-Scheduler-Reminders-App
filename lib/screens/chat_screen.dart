@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/meeting_provider.dart';
 import '../widgets/chat_bubble.dart';
+import '../services/share_service.dart';
+import '../models/meeting.dart';
 
 /// AI chat screen for natural language meeting scheduling
 class ChatScreen extends StatefulWidget {
@@ -25,8 +27,10 @@ class _ChatScreenState extends State<ChatScreen> {
         chatProvider.addSystemMessage(
           'Hello! I\'m your AI meeting assistant. You can tell me things like:\n\n'
           '• "Schedule team meeting tomorrow at 3 PM"\n'
-          '• "Meeting with Sarah next Monday at 10 AM for 2 hours"\n'
-          '• "Lunch with mom on Friday at 12:30"\n\n'
+          '• "Meeting with Sarah at sarah@email.com next Monday at 10 AM"\n'
+          '• "Lunch with mom on Friday at 12:30 and notify her"\n'
+          '• "Project review at 2 PM, send invite to john@company.com"\n\n'
+          'I can also notify participants via email or text!\n\n'
           'How can I help you today?',
         );
       }
@@ -87,14 +91,37 @@ class _ChatScreenState extends State<ChatScreen> {
       if (success) {
         chatProvider.clearPendingData();
         final meetingDate = '${meeting.dateTime.month}/${meeting.dateTime.day}';
-        chatProvider.addSystemMessage(
-          '✅ Meeting "${meeting.title}" created successfully for $meetingDate! Go to the Calendar tab and select that date to view it.',
-        );
+
+        // Check if we should notify participants
+        final pendingData = chatProvider.pendingMeetingData;
+        final shouldNotify =
+            pendingData?['notifyParticipants'] as bool? ?? false;
+
+        if (shouldNotify && meeting.participants.isNotEmpty) {
+          chatProvider.addSystemMessage(
+            '✅ Meeting "${meeting.title}" created successfully for $meetingDate!\n\n📧 Ready to notify participants. Tap "Share" below to send the invitation.',
+          );
+
+          // Show share dialog
+          _showShareDialog(meeting);
+        } else {
+          chatProvider.addSystemMessage(
+            '✅ Meeting "${meeting.title}" created successfully for $meetingDate! Go to the Calendar tab and select that date to view it.',
+          );
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Meeting created! Check Calendar on $meetingDate'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
+            action: meeting.participants.isNotEmpty
+                ? SnackBarAction(
+                    label: 'Share',
+                    textColor: Colors.white,
+                    onPressed: () => _showShareDialog(meeting),
+                  )
+                : null,
           ),
         );
       } else {
@@ -112,6 +139,54 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     _scrollToBottom();
+  }
+
+  /// Show dialog to share meeting with participants
+  void _showShareDialog(Meeting meeting) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notify Participants'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('How would you like to notify the participants?'),
+            const SizedBox(height: 16),
+            if (meeting.participants.isNotEmpty) ...[
+              const Text(
+                'Participants:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+              const SizedBox(height: 4),
+              ...meeting.participants.map((p) => Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 2),
+                    child: Text('• $p', style: const TextStyle(fontSize: 12)),
+                  )),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              ShareService.shareMeeting(meeting);
+
+              // Add confirmation message
+              context.read<ChatProvider>().addSystemMessage(
+                    '📤 Opening share options to notify participants...',
+                  );
+            },
+            icon: const Icon(Icons.share, size: 18),
+            label: const Text('Share Invitation'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

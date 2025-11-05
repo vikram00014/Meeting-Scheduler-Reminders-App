@@ -12,6 +12,7 @@ class Meeting {
       reminderMinutesBefore; // e.g., [60, 15] for 1 hour and 15 minutes before
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? meetingLink; // Zoom, Google Meet, Teams, etc.
 
   Meeting({
     required this.id,
@@ -25,6 +26,7 @@ class Meeting {
     this.reminderMinutesBefore = const [60, 15],
     required this.createdAt,
     this.updatedAt,
+    this.meetingLink,
   });
 
   /// Get the end time of the meeting
@@ -51,6 +53,7 @@ class Meeting {
       'reminderMinutesBefore': reminderMinutesBefore.join(','),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'meetingLink': meetingLink,
     };
   }
 
@@ -75,6 +78,7 @@ class Meeting {
       updatedAt: map['updatedAt'] != null
           ? DateTime.parse(map['updatedAt'] as String)
           : null,
+      meetingLink: map['meetingLink'] as String?,
     );
   }
 
@@ -126,6 +130,7 @@ class Meeting {
     List<int>? reminderMinutesBefore,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? meetingLink,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -140,6 +145,7 @@ class Meeting {
           reminderMinutesBefore ?? this.reminderMinutesBefore,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      meetingLink: meetingLink ?? this.meetingLink,
     );
   }
 

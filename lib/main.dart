@@ -14,8 +14,18 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize notification service
-  await NotificationService.instance.initialize();
+  // Initialize notification service with error handling
+  try {
+    await NotificationService.instance.initialize();
+  } catch (e) {
+    // If initialization fails, try to clear cache and reinitialize
+    try {
+      await NotificationService.instance.clearNotificationCache();
+      await NotificationService.instance.initialize();
+    } catch (_) {
+      // Silently fail - app will still work, just without notifications
+    }
+  }
 
   runApp(const MyApp());
 }
@@ -35,18 +45,37 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
+            seedColor: const Color(0xFF2196F3), // Material Blue
             brightness: Brightness.light,
+            primary: const Color(0xFF2196F3),
+            secondary: const Color(0xFF03A9F4),
           ),
           useMaterial3: true,
-          appBarTheme: const AppBarTheme(
+          appBarTheme: AppBarTheme(
             centerTitle: true,
             elevation: 0,
+            backgroundColor: const Color(0xFF2196F3),
+            foregroundColor: Colors.white,
+            titleTextStyle: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           cardTheme: CardThemeData(
-            elevation: 2,
+            elevation: 3,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
@@ -54,22 +83,45 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             filled: true,
+            fillColor: Colors.grey[50],
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            elevation: 4,
           ),
         ),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
+            seedColor: const Color(0xFF2196F3),
             brightness: Brightness.dark,
+            primary: const Color(0xFF42A5F5),
+            secondary: const Color(0xFF29B6F6),
           ),
           useMaterial3: true,
-          appBarTheme: const AppBarTheme(
+          appBarTheme: AppBarTheme(
             centerTitle: true,
             elevation: 0,
+            backgroundColor: const Color(0xFF1E1E1E),
+            foregroundColor: Colors.white,
+            titleTextStyle: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           cardTheme: CardThemeData(
-            elevation: 2,
+            elevation: 3,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              elevation: 2,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
           inputDecorationTheme: InputDecorationTheme(
@@ -77,6 +129,10 @@ class MyApp extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             filled: true,
+            fillColor: Colors.grey[900],
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            elevation: 4,
           ),
         ),
         themeMode: ThemeMode.system,

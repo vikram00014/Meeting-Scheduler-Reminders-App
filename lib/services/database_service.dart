@@ -24,8 +24,9 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // Incremented version for migration
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -48,7 +49,8 @@ class DatabaseService {
       reminderEnabled $intType,
       reminderMinutesBefore $textType,
       createdAt $textType,
-      updatedAt $textTypeNullable
+      updatedAt $textTypeNullable,
+      meetingLink $textTypeNullable
     )
     ''');
 
@@ -56,6 +58,14 @@ class DatabaseService {
     await db.execute('''
     CREATE INDEX idx_meetings_datetime ON meetings(dateTime)
     ''');
+  }
+
+  /// Handle database upgrades
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add meetingLink column if upgrading from version 1
+      await db.execute('ALTER TABLE meetings ADD COLUMN meetingLink TEXT');
+    }
   }
 
   /// Insert a new meeting into the database

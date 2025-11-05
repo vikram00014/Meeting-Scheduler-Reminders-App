@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/meeting.dart';
+import '../services/share_service.dart';
 
 /// Screen to view meeting details
 class MeetingDetailsScreen extends StatelessWidget {
@@ -41,6 +44,14 @@ class MeetingDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Meeting Details'),
+        actions: [
+          // Share button
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share Meeting',
+            onPressed: () => ShareService.shareMeeting(meeting),
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -126,6 +137,9 @@ class MeetingDetailsScreen extends StatelessWidget {
                 title: 'Participants',
                 content: meeting.participants.join('\n'),
               ),
+            // Meeting Link
+            if (meeting.meetingLink != null && meeting.meetingLink!.isNotEmpty)
+              _buildMeetingLinkSection(context, meeting.meetingLink!),
             // Reminders
             if (meeting.reminderEnabled)
               _buildDetailSection(
@@ -172,6 +186,82 @@ class MeetingDetailsScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMeetingLinkSection(BuildContext context, String link) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.link, color: Colors.grey[700]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Meeting Link',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final uri = Uri.parse(link);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            link,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.blue,
+                              decoration: TextDecoration.underline,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.copy, size: 18),
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: link));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Link copied to clipboard'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          tooltip: 'Copy Link',
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

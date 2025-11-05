@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../models/meeting.dart';
 import '../providers/meeting_provider.dart';
+import '../services/share_service.dart';
 
 /// Screen for adding or editing meetings
 class AddEditMeetingScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   late TextEditingController _participantsController;
+  late TextEditingController _meetingLinkController;
 
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
@@ -47,6 +49,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
       _participantsController = TextEditingController(
         text: meeting.participants.join(', '),
       );
+      _meetingLinkController = TextEditingController(text: meeting.meetingLink);
       _selectedDate = meeting.dateTime;
       _selectedTime = TimeOfDay.fromDateTime(meeting.dateTime);
       _duration = meeting.durationMinutes;
@@ -58,6 +61,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
       _titleController = TextEditingController();
       _descriptionController = TextEditingController();
       _participantsController = TextEditingController();
+      _meetingLinkController = TextEditingController();
       _selectedDate = widget.initialDate ?? DateTime.now();
       _selectedTime = TimeOfDay.now();
       _duration = 60;
@@ -72,6 +76,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _participantsController.dispose();
+    _meetingLinkController.dispose();
     super.dispose();
   }
 
@@ -142,6 +147,9 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
       reminderEnabled: _reminderEnabled,
       reminderMinutesBefore: _reminderMinutes,
       createdAt: widget.meeting?.createdAt ?? DateTime.now(),
+      meetingLink: _meetingLinkController.text.trim().isEmpty
+          ? null
+          : _meetingLinkController.text.trim(),
     );
 
     final provider = context.read<MeetingProvider>();
@@ -168,6 +176,13 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
                   : 'Meeting created successfully',
             ),
             backgroundColor: Colors.green,
+            action: meeting.participants.isNotEmpty
+                ? SnackBarAction(
+                    label: 'Notify',
+                    textColor: Colors.white,
+                    onPressed: () => _showNotifyDialog(meeting),
+                  )
+                : null,
           ),
         );
       } else {
@@ -179,6 +194,92 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
         );
       }
     }
+  }
+
+  /// Show dialog to notify participants
+  void _showNotifyDialog(Meeting meeting) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Notify Participants'),
+        content: const Text(
+          'How would you like to notify the participants?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              ShareService.shareMeeting(meeting);
+            },
+            icon: const Icon(Icons.share),
+            label: const Text('Share'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show meeting link options dialog
+  void _showMeetingLinkOptions() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quick Meeting Links'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.videocam, color: Colors.blue),
+              title: const Text('Zoom'),
+              subtitle: const Text('Generate placeholder'),
+              onTap: () {
+                _meetingLinkController.text =
+                    'https://zoom.us/j/${DateTime.now().millisecondsSinceEpoch % 1000000000}';
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.video_call, color: Colors.red),
+              title: const Text('Google Meet'),
+              subtitle: const Text('Generate placeholder'),
+              onTap: () {
+                _meetingLinkController.text =
+                    'https://meet.google.com/${_generateRandomCode()}';
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups, color: Colors.purple),
+              title: const Text('Microsoft Teams'),
+              subtitle: const Text('Generate placeholder'),
+              onTap: () {
+                _meetingLinkController.text =
+                    'https://teams.microsoft.com/l/meetup-join/${_generateRandomCode()}';
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Generate random code for meeting links
+  String _generateRandomCode() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz';
+    final random = DateTime.now().millisecondsSinceEpoch;
+    return List.generate(10, (index) => chars[(random + index) % chars.length])
+        .join();
   }
 
   @override
@@ -330,11 +431,39 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
                   TextFormField(
                     controller: _participantsController,
                     decoration: const InputDecoration(
-                      labelText: 'Participants (comma-separated)',
+                      labelText: 'Participants',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.people),
-                      hintText: 'John, Sarah, Mike',
+                      hintText: 'John (john@email.com), Sarah (+1234567890)',
+                      helperText:
+                          'Add names with email or phone (comma-separated)',
                     ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  // Meeting Link
+                  TextFormField(
+                    controller: _meetingLinkController,
+                    decoration: InputDecoration(
+                      labelText: 'Meeting Link (Optional)',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.link),
+                      hintText: 'https://zoom.us/j/123456789',
+                      helperText: 'Zoom, Google Meet, Teams, etc.',
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.auto_fix_high, size: 20),
+                            onPressed: () {
+                              _showMeetingLinkOptions();
+                            },
+                            tooltip: 'Quick Links',
+                          ),
+                        ],
+                      ),
+                    ),
+                    keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 16),
                   // Reminder toggle
@@ -391,6 +520,19 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
                             _reminderMinutes.add(1440);
                           } else {
                             _reminderMinutes.remove(1440);
+                          }
+                        });
+                      },
+                    ),
+                    CheckboxListTile(
+                      title: const Text('At meeting start time'),
+                      value: _reminderMinutes.contains(0),
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            _reminderMinutes.add(0);
+                          } else {
+                            _reminderMinutes.remove(0);
                           }
                         });
                       },

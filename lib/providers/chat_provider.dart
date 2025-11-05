@@ -94,6 +94,7 @@ class ChatProvider with ChangeNotifier {
     final duration = data['duration'] as int;
     final description = data['description'] as String?;
     final participants = data['participants'] as List<dynamic>?;
+    final notifyParticipants = data['notifyParticipants'] as bool? ?? false;
 
     final buffer = StringBuffer();
     buffer.writeln('I\'ve prepared your meeting:');
@@ -108,6 +109,11 @@ class ChatProvider with ChangeNotifier {
 
     if (participants != null && participants.isNotEmpty) {
       buffer.writeln('👥 Participants: ${participants.join(", ")}');
+    }
+
+    if (notifyParticipants && participants != null && participants.isNotEmpty) {
+      buffer.writeln(
+          '\n📧 Participants will be notified after creating the meeting');
     }
 
     buffer.writeln('\nWould you like me to create this meeting?');

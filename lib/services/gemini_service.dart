@@ -24,6 +24,7 @@ CRITICAL RULES:
 1. ALWAYS respond with valid JSON only, no additional text
 2. Use the exact field names specified below
 3. If information is missing or ambiguous, ask a clarifying question in JSON format
+4. Extract participant contact information (emails, phone numbers) when mentioned
 
 JSON FORMAT FOR MEETING EXTRACTION:
 {
@@ -34,8 +35,9 @@ JSON FORMAT FOR MEETING EXTRACTION:
     "time": "HH:MM" (24-hour format),
     "duration": 60 (in minutes, default to 60 if not specified),
     "description": "Meeting description or null",
-    "participants": ["participant1", "participant2"] (or empty array),
-    "category": "work" or "personal" or "other" (default to "other")
+    "participants": ["participant1 (email@example.com)", "participant2 (+1234567890)"] (or empty array, include contact info if provided),
+    "category": "work" or "personal" or "other" (default to "other"),
+    "notifyParticipants": true or false (true if user mentions sending invitation/notification)
   }
 }
 
@@ -49,22 +51,23 @@ JSON FORMAT FOR CLARIFICATION QUESTIONS:
 EXAMPLES:
 
 User: "Schedule team meeting tomorrow at 3 PM"
-Response: {"success": true, "data": {"title": "Team Meeting", "date": "TOMORROW", "time": "15:00", "duration": 60, "description": null, "participants": [], "category": "work"}}
+Response: {"success": true, "data": {"title": "Team Meeting", "date": "TOMORROW", "time": "15:00", "duration": 60, "description": null, "participants": [], "category": "work", "notifyParticipants": false}}
 
-User: "Meeting with Sarah next Monday"
-Response: {"success": false, "question": "What time should the meeting with Sarah start?", "context": "Meeting with Sarah next Monday"}
+User: "Meeting with Sarah next Monday and send her invitation to sarah@email.com"
+Response: {"success": true, "data": {"title": "Meeting with Sarah", "date": "NEXT_MONDAY", "time": null, "duration": 60, "description": null, "participants": ["Sarah (sarah@email.com)"], "category": "other", "notifyParticipants": true}}
 
-User: "Project review at 2 PM for 2 hours on Friday"
-Response: {"success": true, "data": {"title": "Project Review", "date": "NEXT_FRIDAY", "time": "14:00", "duration": 120, "description": null, "participants": [], "category": "work"}}
+User: "Project review at 2 PM for 2 hours on Friday with john@company.com"
+Response: {"success": true, "data": {"title": "Project Review", "date": "NEXT_FRIDAY", "time": "14:00", "duration": 120, "description": null, "participants": ["john@company.com"], "category": "work", "notifyParticipants": false}}
 
-User: "Lunch with mom tomorrow 12:30"
-Response: {"success": true, "data": {"title": "Lunch with Mom", "date": "TOMORROW", "time": "12:30", "duration": 60, "description": null, "participants": ["mom"], "category": "personal"}}
+User: "Lunch with mom tomorrow 12:30, notify her at +1234567890"
+Response: {"success": true, "data": {"title": "Lunch with Mom", "date": "TOMORROW", "time": "12:30", "duration": 60, "description": null, "participants": ["mom (+1234567890)"], "category": "personal", "notifyParticipants": true}}
 
 IMPORTANT:
 - For relative dates like "tomorrow", "next Monday", use the format specified and I will convert them
 - Default duration is 60 minutes if not specified
 - Infer category from context (work-related = "work", family/friends = "personal", others = "other")
-- Extract participant names from the request
+- Extract participant names with their contact info (email or phone) when provided
+- Set notifyParticipants to true if user mentions: "send invitation", "notify", "send invite", "email them", "text them"
 - Current date/time context will be provided with each request
 ''';
 

@@ -6,6 +6,7 @@ import '../providers/meeting_provider.dart';
 import '../widgets/meeting_card.dart';
 import 'meeting_details_screen.dart';
 import 'add_edit_meeting_screen.dart';
+import 'analytics_dashboard_screen.dart';
 
 /// Calendar screen with day/week/month views
 class CalendarScreen extends StatefulWidget {
@@ -43,6 +44,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
       appBar: AppBar(
         title: const Text('Calendar'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.analytics),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AnalyticsDashboardScreen(),
+                ),
+              );
+            },
+            tooltip: 'Analytics',
+          ),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {
