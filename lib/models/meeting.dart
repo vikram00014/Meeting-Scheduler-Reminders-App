@@ -14,6 +14,14 @@ class Meeting {
   final DateTime? updatedAt;
   final String? meetingLink; // Zoom, Google Meet, Teams, etc.
 
+  // Recurring meeting fields
+  final bool isRecurring;
+  final String? recurrenceRule; // 'daily', 'weekly', 'monthly', 'custom'
+  final int? recurrenceInterval; // e.g., every 2 weeks
+  final DateTime? recurrenceEndDate;
+  final String? recurrenceGroupId; // Link all occurrences together
+  final String? notes; // Meeting notes and attachments
+
   Meeting({
     required this.id,
     required this.title,
@@ -27,6 +35,12 @@ class Meeting {
     required this.createdAt,
     this.updatedAt,
     this.meetingLink,
+    this.isRecurring = false,
+    this.recurrenceRule,
+    this.recurrenceInterval,
+    this.recurrenceEndDate,
+    this.recurrenceGroupId,
+    this.notes,
   });
 
   /// Get the end time of the meeting
@@ -54,6 +68,12 @@ class Meeting {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'meetingLink': meetingLink,
+      'isRecurring': isRecurring ? 1 : 0,
+      'recurrenceRule': recurrenceRule,
+      'recurrenceInterval': recurrenceInterval,
+      'recurrenceEndDate': recurrenceEndDate?.toIso8601String(),
+      'recurrenceGroupId': recurrenceGroupId,
+      'notes': notes,
     };
   }
 
@@ -79,6 +99,14 @@ class Meeting {
           ? DateTime.parse(map['updatedAt'] as String)
           : null,
       meetingLink: map['meetingLink'] as String?,
+      isRecurring: (map['isRecurring'] as int?) == 1,
+      recurrenceRule: map['recurrenceRule'] as String?,
+      recurrenceInterval: map['recurrenceInterval'] as int?,
+      recurrenceEndDate: map['recurrenceEndDate'] != null
+          ? DateTime.parse(map['recurrenceEndDate'] as String)
+          : null,
+      recurrenceGroupId: map['recurrenceGroupId'] as String?,
+      notes: map['notes'] as String?,
     );
   }
 
@@ -131,6 +159,12 @@ class Meeting {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? meetingLink,
+    bool? isRecurring,
+    String? recurrenceRule,
+    int? recurrenceInterval,
+    DateTime? recurrenceEndDate,
+    String? recurrenceGroupId,
+    String? notes,
   }) {
     return Meeting(
       id: id ?? this.id,
@@ -146,6 +180,12 @@ class Meeting {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       meetingLink: meetingLink ?? this.meetingLink,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurrenceRule: recurrenceRule ?? this.recurrenceRule,
+      recurrenceInterval: recurrenceInterval ?? this.recurrenceInterval,
+      recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
+      recurrenceGroupId: recurrenceGroupId ?? this.recurrenceGroupId,
+      notes: notes ?? this.notes,
     );
   }
 

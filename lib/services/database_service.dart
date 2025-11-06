@@ -1,6 +1,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/meeting.dart';
+import '../models/meeting_template.dart';
 
 /// Database service for local storage of meetings using SQLite
 /// Implements offline-first architecture with full CRUD operations
@@ -24,7 +25,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2, // Incremented version for migration
+      version: 3, // Incremented version for recurring meetings and templates
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -36,6 +37,7 @@ class DatabaseService {
     const textType = 'TEXT NOT NULL';
     const intType = 'INTEGER NOT NULL';
     const textTypeNullable = 'TEXT';
+    const intTypeNullable = 'INTEGER';
 
     await db.execute('''
     CREATE TABLE meetings (
@@ -50,14 +52,40 @@ class DatabaseService {
       reminderMinutesBefore $textType,
       createdAt $textType,
       updatedAt $textTypeNullable,
-      meetingLink $textTypeNullable
+      meetingLink $textTypeNullable,
+      isRecurring $intType DEFAULT 0,
+      recurrenceRule $textTypeNullable,
+      recurrenceInterval $intTypeNullable,
+      recurrenceEndDate $textTypeNullable,
+      recurrenceGroupId $textTypeNullable,
+      notes $textTypeNullable
     )
     ''');
 
-    // Create index on dateTime for faster queries
+    // Create templates table
     await db.execute('''
-    CREATE INDEX idx_meetings_datetime ON meetings(dateTime)
+    CREATE TABLE templates (
+      id $idType,
+      name $textType,
+      title $textType,
+      durationMinutes $intType,
+      description $textTypeNullable,
+      participants $textType,
+      category $textType,
+      reminderEnabled $intType,
+      reminderMinutesBefore $textType,
+      meetingLink $textTypeNullable,
+      createdAt $textType
+    )
     ''');
+
+    // Create indexes for faster queries
+    await db
+        .execute('CREATE INDEX idx_meetings_datetime ON meetings(dateTime)');
+    await db
+        .execute('CREATE INDEX idx_meetings_category ON meetings(category)');
+    await db.execute(
+        'CREATE INDEX idx_meetings_recurrence_group ON meetings(recurrenceGroupId)');
   }
 
   /// Handle database upgrades
@@ -65,6 +93,40 @@ class DatabaseService {
     if (oldVersion < 2) {
       // Add meetingLink column if upgrading from version 1
       await db.execute('ALTER TABLE meetings ADD COLUMN meetingLink TEXT');
+    }
+    if (oldVersion < 3) {
+      // Add recurring meeting fields
+      await db.execute(
+          'ALTER TABLE meetings ADD COLUMN isRecurring INTEGER DEFAULT 0');
+      await db.execute('ALTER TABLE meetings ADD COLUMN recurrenceRule TEXT');
+      await db.execute(
+          'ALTER TABLE meetings ADD COLUMN recurrenceInterval INTEGER');
+      await db
+          .execute('ALTER TABLE meetings ADD COLUMN recurrenceEndDate TEXT');
+      await db
+          .execute('ALTER TABLE meetings ADD COLUMN recurrenceGroupId TEXT');
+      await db.execute('ALTER TABLE meetings ADD COLUMN notes TEXT');
+
+      // Create templates table
+      await db.execute('''
+      CREATE TABLE templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        title TEXT NOT NULL,
+        durationMinutes INTEGER NOT NULL,
+        description TEXT,
+        participants TEXT NOT NULL,
+        category TEXT NOT NULL,
+        reminderEnabled INTEGER NOT NULL,
+        reminderMinutesBefore TEXT NOT NULL,
+        meetingLink TEXT,
+        createdAt TEXT NOT NULL
+      )
+      ''');
+
+      // Create new indexes
+      await db.execute(
+          'CREATE INDEX idx_meetings_recurrence_group ON meetings(recurrenceGroupId)');
     }
   }
 
@@ -215,6 +277,58 @@ class DatabaseService {
     final db = await instance.database;
     final result = await db.rawQuery('SELECT COUNT(*) FROM meetings');
     return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  // ==================== TEMPLATE METHODS ====================
+
+  /// Create a new template
+  Future<MeetingTemplate> createTemplate(MeetingTemplate template) async {
+    final db = await instance.database;
+    await db.insert('templates', template.toMap());
+    return template;
+  }
+
+  /// Get all templates
+  Future<List<MeetingTemplate>> getAllTemplates() async {
+    final db = await instance.database;
+    final result = await db.query('templates', orderBy: 'name ASC');
+    return result.map((json) => MeetingTemplate.fromMap(json)).toList();
+  }
+
+  /// Get template by ID
+  Future<MeetingTemplate?> getTemplate(String id) async {
+    final db = await instance.database;
+    final maps = await db.query(
+      'templates',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (maps.isNotEmpty) {
+      return MeetingTemplate.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  /// Update a template
+  Future<int> updateTemplate(MeetingTemplate template) async {
+    final db = await instance.database;
+    return db.update(
+      'templates',
+      template.toMap(),
+      where: 'id = ?',
+      whereArgs: [template.id],
+    );
+  }
+
+  /// Delete a template
+  Future<int> deleteTemplate(String id) async {
+    final db = await instance.database;
+    return await db.delete(
+      'templates',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   /// Close the database connection

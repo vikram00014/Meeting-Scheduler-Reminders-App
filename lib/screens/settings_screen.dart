@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/notification_service.dart';
 import '../providers/meeting_provider.dart';
+import 'templates_screen.dart';
 
 /// Settings screen for app configuration
 class SettingsScreen extends StatelessWidget {
@@ -118,6 +119,32 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+              );
+            },
+          ),
+          const Divider(),
+          // Templates Section
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'Templates',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description, color: Colors.orange),
+            title: const Text('Manage Templates'),
+            subtitle: const Text('Create and edit meeting templates'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => const TemplatesScreen()),
               );
             },
           ),

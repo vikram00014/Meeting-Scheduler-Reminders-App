@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../models/meeting.dart';
+import '../models/meeting_template.dart';
 import '../providers/meeting_provider.dart';
 import '../services/share_service.dart';
+import '../services/recurrence_service.dart';
+import 'templates_screen.dart';
 
 /// Screen for adding or editing meetings
 class AddEditMeetingScreen extends StatefulWidget {
@@ -27,6 +30,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _participantsController;
   late TextEditingController _meetingLinkController;
+  late TextEditingController _notesController;
 
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
@@ -34,6 +38,12 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
   late String _category;
   late bool _reminderEnabled;
   late List<int> _reminderMinutes;
+
+  // Recurrence fields
+  bool _isRecurring = false;
+  String _recurrenceRule = 'daily';
+  int _recurrenceInterval = 1;
+  DateTime? _recurrenceEndDate;
 
   bool _isLoading = false;
 
@@ -50,6 +60,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
         text: meeting.participants.join(', '),
       );
       _meetingLinkController = TextEditingController(text: meeting.meetingLink);
+      _notesController = TextEditingController(text: meeting.notes);
       _selectedDate = meeting.dateTime;
       _selectedTime = TimeOfDay.fromDateTime(meeting.dateTime);
       _duration = meeting.durationMinutes;
@@ -62,6 +73,7 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
       _descriptionController = TextEditingController();
       _participantsController = TextEditingController();
       _meetingLinkController = TextEditingController();
+      _notesController = TextEditingController();
       _selectedDate = widget.initialDate ?? DateTime.now();
       _selectedTime = TimeOfDay.now();
       _duration = 60;
@@ -71,12 +83,43 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
     }
   }
 
+  Future<void> _selectTemplate() async {
+    final template = await Navigator.push<MeetingTemplate>(
+      context,
+      MaterialPageRoute(builder: (context) => const TemplatesScreen()),
+    );
+
+    if (template != null) {
+      setState(() {
+        _titleController.text = template.title;
+        _duration = template.durationMinutes;
+        _descriptionController.text = template.description ?? '';
+        _category = template.category;
+        _reminderEnabled = template.reminderEnabled;
+        _reminderMinutes = List.from(template.reminderMinutesBefore);
+        if (template.meetingLink != null) {
+          _meetingLinkController.text = template.meetingLink!;
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Template "${template.name}" applied'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _participantsController.dispose();
     _meetingLinkController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -111,6 +154,39 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
   Future<void> _saveMeeting() async {
     if (!_formKey.currentState!.validate()) {
       return;
+    }
+
+    // Validate recurring meeting settings
+    if (_isRecurring) {
+      if (_recurrenceEndDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select an end date for recurring meetings'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      if (_recurrenceEndDate!.isBefore(_selectedDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('End date must be after the start date'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      if (_recurrenceInterval < 1) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Interval must be at least 1'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -150,15 +226,51 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
       meetingLink: _meetingLinkController.text.trim().isEmpty
           ? null
           : _meetingLinkController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
+      isRecurring: _isRecurring,
+      recurrenceRule: _isRecurring ? _recurrenceRule : null,
+      recurrenceInterval: _isRecurring ? _recurrenceInterval : null,
+      recurrenceEndDate: _isRecurring ? _recurrenceEndDate : null,
+      recurrenceGroupId: _isRecurring
+          ? (widget.meeting?.recurrenceGroupId ?? const Uuid().v4())
+          : null,
     );
 
     final provider = context.read<MeetingProvider>();
-    bool success;
+    bool success = false;
+    int meetingCount = 1;
 
     if (widget.meeting != null) {
+      // Update existing meeting
       success = await provider.updateMeeting(meeting);
     } else {
-      success = await provider.addMeeting(meeting);
+      // Add new meeting
+      if (_isRecurring) {
+        // Generate recurring meetings
+        final recurringMeetings = RecurrenceService.generateRecurringMeetings(
+          baseMeeting: meeting,
+          recurrenceRule: _recurrenceRule,
+          until: _recurrenceEndDate!,
+          interval: _recurrenceInterval,
+        );
+
+        meetingCount = recurringMeetings.length;
+
+        // Add all recurring meetings
+        for (final recurringMeeting in recurringMeetings) {
+          final result = await provider.addMeeting(recurringMeeting);
+          if (!result) {
+            success = false;
+            break;
+          }
+          success = true;
+        }
+      } else {
+        // Add single meeting
+        success = await provider.addMeeting(meeting);
+      }
     }
 
     setState(() {
@@ -173,7 +285,9 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
             content: Text(
               widget.meeting != null
                   ? 'Meeting updated successfully'
-                  : 'Meeting created successfully',
+                  : _isRecurring
+                      ? '$meetingCount meetings created successfully'
+                      : 'Meeting created successfully',
             ),
             backgroundColor: Colors.green,
             action: meeting.participants.isNotEmpty
@@ -290,6 +404,14 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.meeting != null ? 'Edit Meeting' : 'New Meeting'),
+        actions: [
+          if (widget.meeting == null) // Only show for new meetings
+            IconButton(
+              icon: const Icon(Icons.description),
+              onPressed: _selectTemplate,
+              tooltip: 'Use Template',
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -466,6 +588,19 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
                     keyboardType: TextInputType.url,
                   ),
                   const SizedBox(height: 16),
+                  // Notes
+                  TextFormField(
+                    controller: _notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Notes (Optional)',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.note),
+                      hintText:
+                          'Add meeting notes, agenda, or attachments info',
+                    ),
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 16),
                   // Reminder toggle
                   SwitchListTile(
                     title: const Text('Enable Reminders'),
@@ -539,6 +674,115 @@ class _AddEditMeetingScreenState extends State<AddEditMeetingScreen> {
                     ),
                   ],
                   const SizedBox(height: 24),
+
+                  // Recurring Meeting Section
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Recurring Meeting',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SwitchListTile(
+                            title: const Text('Repeat'),
+                            value: _isRecurring,
+                            onChanged: (value) {
+                              setState(() {
+                                _isRecurring = value;
+                                if (value) {
+                                  _recurrenceEndDate = _selectedDate
+                                      .add(const Duration(days: 30));
+                                }
+                              });
+                            },
+                          ),
+                          if (_isRecurring) ...[
+                            ListTile(
+                              title: const Text('Frequency'),
+                              trailing: DropdownButton<String>(
+                                value: _recurrenceRule,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _recurrenceRule = value!;
+                                  });
+                                },
+                                items: const [
+                                  DropdownMenuItem(
+                                      value: 'daily', child: Text('Daily')),
+                                  DropdownMenuItem(
+                                      value: 'weekly', child: Text('Weekly')),
+                                  DropdownMenuItem(
+                                      value: 'monthly', child: Text('Monthly')),
+                                ],
+                              ),
+                            ),
+                            ListTile(
+                              title: const Text('Repeat every'),
+                              trailing: SizedBox(
+                                width: 100,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.remove),
+                                      onPressed: _recurrenceInterval > 1
+                                          ? () {
+                                              setState(() {
+                                                _recurrenceInterval--;
+                                              });
+                                            }
+                                          : null,
+                                    ),
+                                    Text('$_recurrenceInterval'),
+                                    IconButton(
+                                      icon: const Icon(Icons.add),
+                                      onPressed: () {
+                                        setState(() {
+                                          _recurrenceInterval++;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            ListTile(
+                              title: const Text('Ends on'),
+                              subtitle: _recurrenceEndDate != null
+                                  ? Text(DateFormat('MMM d, y')
+                                      .format(_recurrenceEndDate!))
+                                  : null,
+                              trailing: const Icon(Icons.calendar_today),
+                              onTap: () async {
+                                final date = await showDatePicker(
+                                  context: context,
+                                  initialDate: _recurrenceEndDate ??
+                                      _selectedDate
+                                          .add(const Duration(days: 30)),
+                                  firstDate: _selectedDate,
+                                  lastDate: DateTime.now()
+                                      .add(const Duration(days: 365)),
+                                );
+                                if (date != null) {
+                                  setState(() {
+                                    _recurrenceEndDate = date;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   // Save button
                   ElevatedButton(
                     onPressed: _saveMeeting,

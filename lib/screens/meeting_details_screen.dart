@@ -130,6 +130,13 @@ class MeetingDetailsScreen extends StatelessWidget {
                 title: 'Description',
                 content: meeting.description!,
               ),
+            // Notes
+            if (meeting.notes != null && meeting.notes!.isNotEmpty)
+              _buildDetailSection(
+                icon: Icons.note,
+                title: 'Notes',
+                content: meeting.notes!,
+              ),
             // Participants
             if (meeting.participants.isNotEmpty)
               _buildDetailSection(
